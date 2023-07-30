@@ -1,0 +1,14 @@
+---
+name: bolt_extend_fs
+modules: []
+apply-settings:
+  show_diff: true
+plans:
+  - puppet_agent::run
+tasks:
+  - bolt_extend_fs:*
+  - facter_task
+  - facts
+  - package
+  - puppet_agent::version
+  - service

@@ -1,0 +1,20 @@
+---
+- name: Resize LV and Filesystem
+  vars:
+    vg_name: "{{ vg }}" 
+    lv_name: "{{ lv }}"
+  hosts: "{{ server_name }}"
+  become: true
+  gather_facts: false
+
+  tasks:
+    - name: Check VG free space
+      shell: "vgs --noheadings --nosuffix --units G {{ vg_name }} | awk '{print $7}'"
+      register: vg_free_space
+
+    - name: convert vg_free_space to float
+      set_fact:
+        vg_free_gb: "{{ vg_free_space.stdout | trim | float }}"
+    - name: check vg_free_gb
+      debug:
+        var: vg_free_gb

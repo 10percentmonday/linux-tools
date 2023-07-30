@@ -1,0 +1,88 @@
+---
+- name: Resize LV and Filesystem
+  vars:
+    vg_name: "{{ vg }}" 
+    lv_name: "{{ lv }}"
+  hosts: "{{ server_name }}"
+  become: true
+  gather_facts: false
+
+  tasks:
+    - name: Check VG free space
+      shell: "vgs --noheadings --nosuffix --units G {{ vg_name }} | awk '{print $7}'"
+      register: vg_free_space
+
+    - name: convert vg_free_space to float
+      set_fact:
+        vg_free_gb: "{{ vg_free_space.stdout }}"
+
+    - name: check vg_free_gb
+      debug: 
+        var: vg_free_gb
+
+    - name: Check if vg has enough free space > 1GB
+      shell: "df -T '/dev/{{ vg_name }}/{{ lv_name }}' | awk 'NR==2{print $2}'"
+      register: df_output
+
+    - name: Determin filesystem type
+      set_fact:
+        fstype: "{{ 'ext4' if df_output.stdout == 'ext4' else 'xfs' }}"
+
+    - name: check fstype
+      debug: 
+        var: fstype
+    
+    - name: Get LV current size
+      #don't use --units G which gives wrong size. 
+      shell: "lvs --noheadings --nosuffix --units B -o lv_size '{{ vg_name }}/{{ lv_name }}'"
+      register: lv_size
+
+    - name: check current_lv_size
+      debug: 
+        var: lv_size
+    
+    - name: Calculate new LV size by +1G
+      set_fact:
+        new_size_bytes: "{{ (lv_size.stdout | int) + 1073741824 }}"
+    - name: check new_lv_size_bytes
+      debug: 
+        var: new_size_bytes
+    
+    - name: Convert new size to GB
+      set_fact:
+        new_lv_size: "{{ (new_size_bytes | int / 1024 / 1024 / 1024) | round(1, 'floor') }}G"
+
+    - name: check new_lv_size
+      debug: 
+        var: new_lv_size
+
+#    - name: Increase LV size by 10M 
+#      block:
+#        - name: Resize LV
+#          lvol:
+#            vg: "{{ vg_name }}"
+#            lv: "{{ lv_name }}"
+#            size: "{{ new_lv_size }}"
+#          register: lv_resize_result
+#      when: vg_free_gb | float > 1.0
+#
+#    #- name: Check LV resize result
+#    #  fail:
+#    #    msg: "Failed to resize LV."
+#    #  when: vg_free_gb | float > 1.0 and not lv_resize_result.changed
+#
+#    - name: Resize filesystem if lv size increased successfully
+#      block:
+#        - name: Resize filesystem
+#          filesystem:
+#            fstype: "{{ fstype }}"
+#            dev: "/dev/{{ vg_name }}/{{ lv_name }}"
+#            resizefs: yes
+#          register: fs_resize_result
+#      when: vg_free_gb | float > 1.0 and lv_resize_result.changed
+#
+#    #- name: Check filesystem resize result
+#    #  fail:
+#    #    msg: "Failed to resize filesystem"
+#    #  when: vg_free_gb | float > 1.0 and not fs_resize_result.changed
+#

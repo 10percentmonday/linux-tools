@@ -1,0 +1,14 @@
+---
+name: mylvm
+modules: []
+apply-settings:
+  show_diff: true
+plans:
+  - puppet_agent::run
+tasks:
+  - mylvm:*
+  - facter_task
+  - facts
+  - package
+  - puppet_agent::version
+  - service
